@@ -14,13 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 In this html document I want to show some economic facts of 2016 obtained from the economic freedom institute (https://www.fraserinstitute.org/).
 First of all I load the dataset and I will clean it
 
-
-```{r}
-setwd("C:/Users/CIC5331/Desktop/Documents_Personals/Courses/MOOC/INP/Developing Data Products")
-```
-
-```{r}
-df <- read.csv2("C:/Users/CIC5331/Desktop/Documents_Personals/Courses/MOOC/INP/Developing Data Products/2018_EconomicFreedom.csv")
+```{r message=FALSE, warning=TRUE}
+df <- read.csv2("./2018_EconomicFreedom.csv")
 df <- df[,1:9]
 df <- df[df$Year==2016,]
 library(stringr)
@@ -33,86 +28,37 @@ df <- remove_empty(df, which = c("rows", "cols"))
 
 than to center the marker I will use the capital cities with a dataset found on (https://simplemaps.com/data/world-cities)
 
-```{r}
-WorldCapital <- read.csv("C:/Users/CIC5331/Desktop/Documents_Personals/Courses/MOOC/INP/Developing Data Products/WorldCapitalCoordinates.csv")
+```{r message=FALSE, warning=TRUE}
+WorldCapital <- read.csv("./WorldCapitalCoordinates.csv")
 ```
 
 but looking at this dataset I see some issues.
 1) several cities are reported as capital. I will use only the primary one
 
-```{r}
+```{r message=FALSE, warning=TRUE}
 WorldCapital <- WorldCapital[WorldCapital$capital=="primary",]
 ```
 
 2) some nation has more than one priamry capital. I will keep only the first one
 
-```{r}
+```{r message=FALSE, warning=TRUE}
 dup_filter <- duplicated(WorldCapital$iso3)
 WorldCapital <- WorldCapital[!dup_filter,]
 ```
 
 once done that, I merge the 2 dataset
 
-```{r}
+
+```{r message=FALSE, warning=FALSE}
 library(dplyr)
 df_total <- df %>% merge(WorldCapital[,c(3,4,7)],by.x="ISO Code",by.y="iso3") 
 ```
 
-```{r}
+and I plot the countries and their Legal System and Property Rights index.
+
+```{r message=FALSE, warning=FALSE}
 library(leaflet)
-m <- leaflet(df_total)  %>% 
-  addProviderTiles(providers$CartoDB.DarkMatter) %>% 
-  setView(-71.931180, 42.385453, zoom = 7) %>% 
-  addCircleMarkers(~lon, ~lat, popup=ddsb$type, weight = 3, radius=4, 
-                  stroke = F, fillOpacity = 0.5)
-```
-
-
-```{r cars}
-SmallStates <- read.csv("C:/Users/CIC5331/Desktop/Documents_Personals/Courses/MOOC/INP/Developing Data Products/SmallStates.csv", sep=";")
-SmallStates$Lat = gsub('°', "\'", SmallStates$Lat)
-SmallStates$Long = gsub('°', "\'", SmallStates$Long)
-SmallStates$Lat = gsub('\\?', "\'", SmallStates$Lat)
-SmallStates$Long = gsub('\\?', "\'", SmallStates$Long)
-```
-
-```{r}
-library(OSMscale)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-```{r}
-# Insert your latitude and longitude in the code below
-# NOTE: Don't get them reversed otherwise you'll end up in the South Pole.
-library(leaflet)
-library(dplyr)
-# Initialize and assign m as the leaflet object
-m <- leaflet() %>%
-# Now add tiles to it
-    addTiles() %>%  
-# Setting the middle of where the map should be and the zoom level
-    setView(lng=-77.030137, lat=38.902986, zoom = 16) %>%
-# Now, add a marker with a popup, 
-    addMarkers(lng=-77.030137, lat=38.902986, popup="<b>Hello</b><br><a href='https://www.washingtonpost.com'>-Me</a>")
-
-m 
-
-m <- leaflet(ddsb)  %>% 
-  addProviderTiles(providers$CartoDB.DarkMatter) %>% 
-  setView(-71.931180, 42.385453, zoom = 7) %>% 
-  addCircleMarkers(~lon, ~lat, popup=ddsb$type, weight = 3, radius=4, 
-                 color=~cof(type), stroke = F, fillOpacity = 0.5)  %>%
-  addLegend("bottomright", colors= c("#ffa500", "#13ED3F"), labels=c("Dunkin'", "Starbucks"), title="Coffee places") 
-
+m <- leaflet(data = df_total) %>% addTiles() %>% addProviderTiles("Stamen.Watercolor") %>% addMarkers(lng=df_total$lng,lat=df_total$lat,clusterOptions=markerClusterOptions(),label = ~as.character(df_total$`Legal System and Property Rights`) )
 m
-```
 
+```
