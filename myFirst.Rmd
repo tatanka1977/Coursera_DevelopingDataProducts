@@ -55,7 +55,7 @@ library(dplyr)
 df_total <- df %>% merge(WorldCapital[,c(3,4,7)],by.x="ISOCode",by.y="iso3") 
 ```
 
-and I plot the countries and their Legal System and Property Rights index.
+I want to plot the countries and their summary index as provided by the economic freedom institute, together with their capital. I start with building the world map by a json file
 
 ```{r message=FALSE, warning=FALSE}
 
@@ -64,6 +64,8 @@ countries <- geojsonio::geojson_read("./countries.geo.json",
 countries@data <- countries@data %>% merge(df_total,by.x="id",by.y="ISOCode")
 
 ```
+
+and than plot the data into the created mao
 
 ```{r message=FALSE, warning=FALSE}
 library(leaflet)
@@ -75,7 +77,7 @@ leaflet(countries) %>%
   addTiles() %>%
   addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
     fillColor = ~pal(log10(SUMMARYINDEX))) %>%
-  addLegend(pal = pal, values = ~log10(SUMMARYINDEX), opacity = 1.0,title="Summary Index",labFormat = labelFormat(transform = function(x) round(10^x))) %>% addMarkers(lng=df_total$lng,lat=df_total$lat,clusterOptions=markerClusterOptions(),label = ~as.character(Freedomtotradeinternationally))
+  addLegend(pal = pal, values = ~log10(SUMMARYINDEX), opacity = 1.0,title="Summary Index",labFormat = labelFormat(transform = function(x) round(10^x))) %>% addMarkers(lng=df_total$lng,lat=df_total$lat,clusterOptions=markerClusterOptions(),label = ~paste("Freedom to trade internationally",": ",as.character(Freedomtotradeinternationally))) 
 
 ```
 
