@@ -23,6 +23,7 @@ library(janitor)
 colnames(df) <- str_remove_all(colnames(df),'X[:digit:][:punct:]{2}')
 colnames(df) <- str_replace_all(colnames(df),'[:punct:]'," ")
 colnames(df) <- str_replace_all(colnames(df),'   ',' and ')
+colnames(df) <- gsub('\\s+', '', colnames(df))
 df <- remove_empty(df, which = c("rows", "cols"))
 ```
 
@@ -51,14 +52,30 @@ once done that, I merge the 2 dataset
 
 ```{r message=FALSE, warning=FALSE}
 library(dplyr)
-df_total <- df %>% merge(WorldCapital[,c(3,4,7)],by.x="ISO Code",by.y="iso3") 
+df_total <- df %>% merge(WorldCapital[,c(3,4,7)],by.x="ISOCode",by.y="iso3") 
 ```
 
 and I plot the countries and their Legal System and Property Rights index.
 
 ```{r message=FALSE, warning=FALSE}
-library(leaflet)
-m <- leaflet(data = df_total) %>% addTiles() %>% addProviderTiles("Stamen.Watercolor") %>% addMarkers(lng=df_total$lng,lat=df_total$lat,clusterOptions=markerClusterOptions(),label = ~as.character(df_total$`Legal System and Property Rights`) )
-m
+
+countries <- geojsonio::geojson_read("./countries.geo.json",
+  what = "sp")
+countries@data <- countries@data %>% merge(df_total,by.x="id",by.y="ISOCode")
 
 ```
+
+```{r message=FALSE, warning=FALSE}
+library(leaflet)
+pal <- colorNumeric("viridis", NULL)
+
+
+
+leaflet(countries) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(log10(SUMMARYINDEX))) %>%
+  addLegend(pal = pal, values = ~log10(SUMMARYINDEX), opacity = 1.0,title="Summary Index",labFormat = labelFormat(transform = function(x) round(10^x))) %>% addMarkers(lng=df_total$lng,lat=df_total$lat,clusterOptions=markerClusterOptions(),label = ~as.character(Freedomtotradeinternationally))
+
+```
+
