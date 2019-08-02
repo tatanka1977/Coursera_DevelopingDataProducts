@@ -24,7 +24,7 @@ colnames(df) <- str_replace_all(colnames(df),'   ',' and ')
 colnames(df) <- gsub('\\s+', '', colnames(df))
 df <- remove_empty(df, which = c("rows", "cols"))
 
-Continents <- read.csv("~/GitHub/Coursera_DevelopingDataProducts/Continents.txt")
+Continents <- read.csv("~./Continents.txt")
 Continents <- Continents[,c(3,6:8)]
 
 df <- merge(df,Continents,by.x="ISOCode",by.y="alpha.3")
