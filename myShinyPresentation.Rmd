@@ -1,0 +1,92 @@
+---
+title: "World Economic data"
+author: "Benedetto Lo Cicero"
+date: "16 Juli 2019"
+output: slidy_presentation
+---
+***
+## Basic economic datas
+
+In this html presentation I want to show some economic facts  obtained from the economic freedom institute (https://www.fraserinstitute.org/).
+***
+
+```{r echo=FALSE, message=FALSE, warning=TRUE}
+library(shiny)
+library(shinyWidgets)
+library(dplyr)
+library(stringr)
+library(janitor)
+library(plotly)
+library(zoo)
+library(lubridate)
+df <- read.csv2("./2018_EconomicFreedom.csv")
+df <- df[,1:9]
+#df <- df[df$Year==2016,]
+
+colnames(df) <- str_remove_all(colnames(df),'X[:digit:][:punct:]{2}')
+colnames(df) <- str_replace_all(colnames(df),'[:punct:]'," ")
+colnames(df) <- str_replace_all(colnames(df),'   ',' and ')
+colnames(df) <- gsub('\\s+', '', colnames(df))
+df <- remove_empty(df, which = c("rows", "cols"))
+
+Continents <- read.csv("~/GitHub/Coursera_DevelopingDataProducts/Rshine/myFirstShiny/Continents.txt")
+Continents <- Continents[,c(3,6:8)]
+
+df <- merge(df,Continents,by.x="ISOCode",by.y="alpha.3")
+df$ISOCode <- df$ISOCode %>% as.factor()
+df$Countries <- df$Countries %>% as.factor()
+df$region <- df$region %>% as.factor()
+df$sub.region <- df$sub.region %>% as.factor()
+
+```
+***
+## the shiny application consits economic map plot of the last year report
+
+I colour the country using their summary index as reference
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# specify some map projection/options
+
+
+library(plotly)
+p <- plot_geo(df, locationmode = 'world') %>% 
+  add_trace(
+    z = ~SUMMARYINDEX, locations = ~ISOCode,
+    color = ~SUMMARYINDEX, colors = c("green","blue") 
+  ) %>%
+  colorbar(title = "Summary Index")
+
+p
+
+```
+
+***
+## the user can select the country to be plot and see the map of summary index
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pal <- c("red", "blue", "green")
+choices_country <- unique(as.character(df$Countries))
+input <- choices_country[1:4]
+dataset <- df %>% filter(Countries==input) %>% group_by(Countries) %>% filter(Year==max(Year))
+
+plot_geo(dataset, locationmode = 'world') %>% 
+    add_trace(
+      z = ~SUMMARYINDEX, locations = ~ISOCode,
+      color = ~SUMMARYINDEX, colors = c("green","blue") 
+    )
+```
+
+*** 
+## in parallel he will get the plot of the summary index according to the reported years
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+dataset <- df %>% filter(Countries==input) %>% group_by(Countries)
+
+dataset %>% group_by(Countries) %>% 
+  plot_ly(x = ~ Year ) %>% 
+  add_lines(y = ~ SUMMARYINDEX , 
+            color = ~ factor(Countries)) %>% 
+  layout(xaxis=list(title = "Year"),
+         yaxis=list(title = "Summary index"))
+
+```
+
