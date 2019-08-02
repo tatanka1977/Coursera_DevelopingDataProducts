@@ -24,15 +24,15 @@ colnames(df) <- str_replace_all(colnames(df),'   ',' and ')
 colnames(df) <- gsub('\\s+', '', colnames(df))
 df <- remove_empty(df, which = c("rows", "cols"))
 
-Continents <- read.csv("~./Continents.txt")
-Continents <- Continents[,c(3,6:8)]
+#Continents <- read.csv("~./Continents.txt")
+#Continents <- Continents[,c(3,6:8)]
 
-df <- merge(df,Continents,by.x="ISOCode",by.y="alpha.3")
+#df <- merge(df,Continents,by.x="ISOCode",by.y="alpha.3")
 df$ISOCode <- df$ISOCode %>% as.factor()
 df$Countries <- df$Countries %>% as.factor()
-df$region <- df$region %>% as.factor()
-df$sub.region <- df$sub.region %>% as.factor()
-df$Year <- as.Date(as.yearmon(df$Year) + 11/12, frac = 1)
+#df$region <- df$region %>% as.factor()
+#df$sub.region <- df$sub.region %>% as.factor()
+#df$Year <- as.Date(as.yearmon(df$Year) + 11/12, frac = 1)
 
 choices_country <- unique(as.character(df$Countries))
 choices_country <- setNames(choices_country,choices_country)
