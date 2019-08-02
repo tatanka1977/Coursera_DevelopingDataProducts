@@ -33,7 +33,7 @@ choices_year <- setNames(choices_year,choices_year)
 
 pal <- c("red", "blue", "green")
 
- <- choices_country[1:10]
+index <- choices_country[1:10]
 dataset <- df %>% filter(Countries==input) %>% group_by(Countries) %>% filter(Year==max(Year))
 
 plot_geo(dataset, locationmode = 'world') %>% 

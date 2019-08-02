@@ -37,8 +37,8 @@ df$Countries <- df$Countries %>% as.factor()
 
 choices_country <- unique(as.character(df$Countries))
 choices_country <- setNames(choices_country,choices_country)
-choices_year <- df$Year %>% unique() %>% sort() 
-choices_year <- setNames(choices_year,year(choices_year))
+#choices_year <- df$Year %>% unique() %>% sort() 
+#choices_year <- setNames(choices_year,year(choices_year))
 
 pal <- c("red", "blue", "green")
 # Define UI for application that draws a histogram
@@ -49,7 +49,7 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins
     sidebarLayout(
         sidebarPanel(
-            selectInput("year", label = "Select year", choices = choices_year),
+            
             actionButton(inputId = "submit_loc",
                          label = "Submit"),
             # Copy the chunk below to make a group of checkboxes
@@ -65,7 +65,7 @@ ui <- fluidPage(
         # Show a plot of the generated distribution h3("Summary index map"),
         mainPanel(
             tabsetPanel(
-                tabPanel("Lat year map", plotlyOutput("Plotly")),
+                tabPanel("Last year map", plotlyOutput("Plotly")),
                 tabPanel("Summary Index Trend", plotlyOutput("scatter")),
                 type = "pills"
             )
@@ -79,10 +79,10 @@ server <- function(input, output) {
     observeEvent(
         eventExpr = input[["submit_loc"]],
         handlerExpr = {
-            dataset <- df %>% filter(Countries==input$checkGroup)  
-            dataset_2 <- dataset %>% filter(Countries==input$year)
+            dataset <- df %>% filter(Countries==input$checkGroup)
+            dataset2 <- filter(group_by(dataset,Countries),Year==max(Year) )                       
             output$Plotly <- renderPlotly({
-                plot_geo(filter(group_by(dataset,Countries),Year==max(Year)), locationmode = 'world') %>% 
+                plot_geo(group_by(dataset2,Countries), locationmode = 'world') %>% 
                     add_trace(
                         z = ~SUMMARYINDEX, locations = ~ISOCode,
                         color = ~SUMMARYINDEX, colors = c("green","blue") 
@@ -90,9 +90,8 @@ server <- function(input, output) {
             
             output$scatter <- renderPlotly({
                 dataset %>% 
-                    mutate(onlyyear = year(Year)) %>% 
                     group_by(Countries) %>% 
-                    plot_ly(x = ~ onlyyear ) %>% 
+                    plot_ly(x = ~ Year ) %>% 
                     add_lines(y = ~ SUMMARYINDEX , 
                               color = ~ factor(Countries)) %>% 
                     layout(xaxis=list(title = "Year"),
