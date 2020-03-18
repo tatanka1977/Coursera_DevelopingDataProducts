@@ -1,0 +1,248 @@
+---
+title: "Assignment"
+author: "Benedetto Lo Cicero"
+date: "17/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Executive Summary
+
+Based  we will try to train a predictive model on a dataset provide by HAR
+(http://groupware.les.inf.puc-rio.br/har) to try to predict the exercise that was performed.
+The dataset is composed of data collected by personal activity relatively trackers.
+
+We'll proceed as following:
+
+- Preparation
+- Process the data
+- clean the data
+- Explore the data 
+- Model different models
+- Select the best model
+- Predicting the classification of the model on the quiz set to answwr to the quiz questions
+
+## Preparation
+
+let's start to load the packages that will be used; worth to be mentioned is the "dataPrepartion" that will easier the prepration
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(caret)
+library(dataPreparation)
+library(ggcorrplot)
+library(GGally)
+library(readr)
+library(janitor)
+```
+
+```{r include=FALSE}
+setwd("C:/Users/theko/Google Drive/Corsi/CourseMaterial/Coursera/WIP/Data Science_ Statistics and Machine Learning Specialization/03_PracticalMachineLearning/Assignment")
+```
+
+## Processing
+
+we will start loading the training amd testing dataset, acknwldging that the testing set is the one used in the quiz, and NOT the one where to test my data
+
+### load the data
+
+to load the data we will use read_csv from the readr packages, becuase of the size of the dataset
+```{r message=TRUE, warning=FALSE, include=FALSE}
+df <- read_csv("pml-training.csv")
+df_quiz <- read_csv("pml-testing.csv") 
+df[,1] <-NULL
+df_quiz[,1] <-NULL
+```
+the dataset is composed of ```r dim(df)[1]``` rows and ```r dim(df)[2]``` columns
+let's have a look at the structure of the dataset (only the first 15 features)
+
+```{r}
+df[,1:15] %>%  glimpse()
+```
+
+the first impression is that we might have columns totally filled with NA.
+Moreover this NA is coded as charachter and we have to enforce an R NA. The method I use is to convert them in number and the NA will be automatically set. This will be performed on all the columsn except the first 5 and the last one. In parallel we will convert the date into R type dates
+
+```{r include=FALSE}
+CleanTheData <- function(x){
+  tmp_1 <- x[,1:5]
+  tmp_2 <- x[,6:ncol(x)-1]
+  tmp_2 <- apply(tmp_2,2,FUN=function(y){as.numeric(as.character(y))}) 
+  tmp_3 <- cbind(tmp_1,tmp_2)
+  tmp_3$cvtd_timestamp <- tmp_3 $cvtd_timestamp %>% parse_date_time(orders="%d/%m/%y %H:%M")
+  tmp_3$new_window <- ifelse(as.character(tmp_3 $new_window)=="yes",TRUE,FALSE)
+  return(tmp_3)
+}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+y <- df$classe
+df_clean <- cbind(classe=y,CleanTheData(df))
+```
+
+We can now remove them column with all NA using the remove_empty function from janitor
+
+```{r echo=TRUE}
+df_clean <- janitor::remove_empty(df_clean, which = c("cols"))
+dim(df_clean)
+```
+
+the size didn't shrink enough; we have to create a function removing all the columns with a percenteage of NA > a certain threshold. 
+
+```{r include=FALSE}
+FilterTheData <- function(x,perc=0.5){
+  col_to_remove <- x %>% summarise_all(funs(sum(is.na(.)) / length(.))) %>% t() %>% as.data.frame() %>% rename(Percentage=V1) %>%  subset(Percentage>=perc) %>% row.names()
+  x[,col_to_remove ] <- NULL
+  return(x)
+}
+```
+
+we can then remove column containing >90 % NA; the dimensions of our dataset srhrink.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_filtered <- FilterTheData(df_clean,0.9)
+dim(df_filtered)
+```
+
+as last action let's remove all the columns linked to a timestamp and to a window , and not bringing additional information (excluding the class column our target variable):
+```{r include=FALSE}
+unwanted_col <- 3:7
+df_notNum <- df_filtered[,unwanted_col]
+# unwanted_col = grepl("timestamp", colnames(df_filtered))
+# unwanted_col = colnames(df_filtered)[unwanted_col]
+df_filtered[,unwanted_col] <- NULL
+```
+
+we can now split the datset in training and test set.
+
+```{r echo=TRUE}
+set.seed(17032020)
+
+train_index <- createDataPartition(df_filtered$classe, p=0.6, list=FALSE)
+train <- df_filtered[train_index,]
+test <- df_filtered[-train_index,]
+```
+
+### Exploratory data analyses 
+
+we can run some exploratory analysis. We can check if there is any anormality in the data vs the user_name:
+```{r echo=FALSE}
+ggplot(train,aes(x=user_name))+geom_histogram(stat="count",aes(fill=classe))
+```
+
+there is not an evident difference between the user and the activity class.
+we can have a look to the correlation between the numerical variables.
+
+```{r echo=FALSE}
+train_numeric <- train[,4:ncol(train)]
+correlations <- cor(train_numeric)
+ggcorrplot(correlations)+ theme(axis.text.x= element_text( size=6,angle=90))+theme(axis.text.y= element_text( size=6,angle=0))
+```
+
+there are no indication of an evident correaltion between the variables, except for some subsets, where they looks highly correlated.
+it's legitimate to think to apply a dimension reduction process such as PCA in order to remove all the features that might be highly correlated
+
+### PreProcess with PCA
+
+therefore considering only the numerical variables, and suing a threshold of 80% (variability explained by the PCA components) we can reduce our dataset to 
+
+```{r include=FALSE}
+pca_schema <- preProcess(train_numeric, method = "pca",thresh = 0.80)
+train_pca <- predict(pca_schema , train_numeric) %>% cbind(.,classe=train[,1])
+```
+
+where we have ```r dim(train_pca)[1]``` cases and ```dim(train_pca)[2]-1``` features
+
+```{r include=FALSE}
+test_numeric <- test[,4:ncol(test)]
+test_pca <- predict(pca_schema , test_numeric) %>% cbind(.,classe=test[,1])
+```
+
+
+
+## Machine learning models
+we will apply 3 machine learnign models, tune them using cross validation and evaluate them on the testing set.
+
+1. Neural Networks (tuned on size,decay)
+2. Knn (tuned on k)
+3. eXtreme Gradient Boosting (tuned on parameters nrounds, lambda,alpha,ete)
+
+for all the 3 models we will do the same:
+1. fit the model
+2. predict on the test set
+3. build the classifcation matrix and store the figures to compare them
+
+## Neural Networks
+```{r Neural Network, message=FALSE, warning=FALSE, include=FALSE}
+control <- trainControl(method="cv", number=5, allowParallel = TRUE)
+grid <- expand.grid(size=6:10,decay=0)
+classifier <- train(classe ~ ., data=train_pca, method="nnet",  tuneGrid=grid,trControl=control)
+pred <- predict(classifier,test_pca)
+CM <- confusionMatrix(pred,reference = test_pca$classe)
+model_comparison <- CM$overall %>% as.data.frame()
+colnames(model_comparison) <- "NNt"
+
+```
+
+## Knn
+```{r Knn, echo=TRUE, message=FALSE, warning=FALSE}
+control <- trainControl(method="cv", number=5, allowParallel = TRUE)
+grid <- expand.grid(k=6:10)
+classifier <- train(classe ~ ., data=train_pca, method="knn",  tuneGrid=grid,trControl=control)
+pred <- predict(classifier,test_pca)
+CM <- confusionMatrix(pred,reference = test_pca$classe)
+model_comparison <- merge(model_comparison,as.data.frame(CM$overall))
+colnames(model_comparison)[ncol(model_comparison)] <- "KNn"
+
+```
+
+### eXtreme Gradient Boosting
+
+```{r eXtreme Gradient Boosting, echo=TRUE, message=FALSE, warning=FALSE}
+control <- trainControl(method="cv", number=5, allowParallel = TRUE)
+grid <- expand.grid(nrounds=100,
+                    lambda=0.5:0.9, 
+                    alpha=0.7, 
+                    eta=0.5:0.9)
+classifier <- train(classe ~ ., data=train_pca, method="xgbLinear",  tuneGrid=grid,trControl=control)
+```
+
+```{r echo=TRUE}
+pred <- predict(classifier,test_pca)
+CM <- confusionMatrix(pred,reference = test_pca$classe)
+model_comparison <- merge(model_comparison,as.data.frame(CM$overall))
+colnames(model_comparison)[ncol(model_comparison)] <- "eXGB"
+
+```
+
+## Model selection and application on the quiz dataset
+
+the best model is eXGB tuned 
+
+```{r}
+model_comparison %>% as_tibble()
+```
+
+
+we have to preprocess the quiz data set using the previous created PCA components; we have to retain only the columns used when training the PCA and the last column (problem_id), that refers to the question number in the quiz:
+
+```{r echo=TRUE}
+df_quiz_clean <- df_quiz
+n_quiz <- df_quiz_clean$problem_id
+df_quiz_clean$problem_id <- NULL
+df_quiz_clean <- df_quiz_clean[,colnames(train_numeric)]
+df_quiz_clean <- predict(pca_schema , df_quiz_clean) 
+```
+
+with this model we have the following predictions:
+```{r echo=FALSE}
+quiz_pred <- predict(classifier,df_quiz_clean)
+cbind(n_quiz,prediction=as.character(quiz_pred)) %>% as.data.frame() %>% as_tibble()
+```
+
